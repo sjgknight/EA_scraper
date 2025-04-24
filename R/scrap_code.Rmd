@@ -1,0 +1,53 @@
+---
+title: "scrap_code"
+author: "sjgknight"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+
+```{r SCRAP, eval=FALSE, include=FALSE}
+
+pacman::p_load(binman, RSelenium)
+
+
+# Start Selenium server and browser (Chrome)
+rD <- rsDriver(browser = "chrome", verbose = FALSE)
+remDr <- rD$client
+
+remDr$navigate("https://www.fwc.gov.au/document-search/view/3/aHR0cHM6Ly9zYXNyY2RhdGFwcmRhdWVhYS5ibG9iLmNvcmUud2luZG93cy5uZXQvZW50ZXJwcmlzZWFncmVlbWVudHMvMjAyNS8yL2FlNTI3OTA0LnBkZg2")
+
+
+
+
+download_fwc_pdfs <- function(paths, outputnames, base_url = "https://www.fwc.gov.au/document-search/view/3/", dest_dir = "fwc_pdfs") {
+  # Create directory if it doesn't exist
+  if (!dir.exists(dest_dir)) dir.create(dest_dir)
+
+  # Combine full URLs and file names
+  urls <- stringr::str_c(base_url, paths)
+  file_names <- outputnames
+
+  # Download PDFs
+  purrr::walk2(
+    urls, file_names,
+    ~ {
+      dest_path <- file.path(dest_dir, .y)
+      tryCatch({
+        download.file(.x, destfile = dest_path, mode = "wb")
+        message("Downloaded: ", .y)
+      }, error = function(e) {
+        message("Failed to download: ", .y, " (", conditionMessage(e), ")")
+      })
+    }
+  )
+}
+
+
+download_fwc_pdfs(documents$document.metadata_storage_path, 
+                  documents$document.PublicationID)
+
+
+```
+
