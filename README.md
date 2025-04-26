@@ -1,3 +1,13 @@
+Repository contains scripts to search the Fair Work enterprise agreement database https://www.fwc.gov.au/document-search
+
+
+https://www.fwc.gov.au/about-us/legal-and-freedom-information/about-website/copyright
+
+
+
+Github copilot used to support code development and debugging. 
+
+
 This is an R project created with projectR. 
 
 

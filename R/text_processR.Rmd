@@ -1,0 +1,77 @@
+---
+title: "text_processR"
+author: "sjgknight"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup}
+# may use quanteda, or, corpustools, for a KWIC analysis. But Semantra may be better for purpose. 
+
+pacman::p_load(curl, 
+               magrittr, 
+               dplyr, 
+               purrr, 
+               glue, 
+               readr, 
+               textTinyR,
+               stringr
+               )
+
+# Check for existing files matching the pattern
+matching_files <- list.files(here::here("data"), pattern = file_pattern, full.names = TRUE)
+
+if (length(matching_files) > 0) {
+  # If multiple matching files are found, use the most recently dated
+  latest_file <- matching_files[which.max(file.info(matching_files)$mtime)]
+  
+    data <- readRDS(latest_file)
+  } else {
+    # Run the block and save the output with today's date
+    message("you need to run get_awards first...")
+}
+
+
+```
+
+Not clear if this can run from R, I copypasted into powershell.
+Output of embeddings likely to need manually moving from `C:\Users\...\AppData\Roaming\Semantra`
+Using `https://github.com/itsjustmustafa/semantra` version of Semantra. 
+
+```{r}
+
+semantrapath <- file.path(here::here()) %>% 
+  dirname() %>%
+  paste0('"',., "/semantra-main/src/semantra/semantra.py",'"')
+
+# Define the PowerShell script
+powershell_script <- glue::glue('
+$semantrapath = {semantrapath}
+$lib_folder = ".\\data\\txt"
+$embeddings_cache_folder = ".\\data\\embedings"
+$files = Get-ChildItem -Path "$lib_folder" -Recurse -Filter "*.txt" | ForEach-Object { $_.FullName }
+')
+
+# If no embeddings, create them
+# Or if you have the embeddings already reload those
+script_end <- ifelse(length(list.files(here::here("data/embeddings"))) > 0, 
+                     'python $semantrapath @files --semantra-dir $embeddings_cache_folder',
+                     'python $semantrapath @files')
+                     
+
+powershell_script <- paste0(powershell_script, 
+                            "\n",
+                            script_end)
+                            
+
+
+# Run the PowerShell script
+system(paste("powershell -Command", shQuote(powershell_script)), intern = TRUE)
+
+
+
+```
+
+And open  `localhost:8080` to view/interact.
+
+This version of semantra lets you export results to json.

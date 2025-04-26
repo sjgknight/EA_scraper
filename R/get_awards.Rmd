@@ -1,9 +1,19 @@
 ---
-title: "R Notebook"
+title: "Get data"
 output: html_notebook
 editor_options: 
   chunk_output_type: inline
 ---
+
+```{r yourvariables}
+
+# what are you searching for
+query <- '"artificial intelligence"'
+
+query <- '"technology in relation to its enterprise that is likely to have a significant effect on the employees" AND (automation OR automated OR "artificial intelligence")'
+
+```
+
 
 ```{r setup}
 
@@ -18,37 +28,18 @@ pacman::p_load(curl,
                readr, 
                httr)
 
+source(here::here("R/params.R"))
+
+source(here::here("R/functions/get_query_count.R"))
+source(here::here("R/functions/sanitize_flename.R"))
+source(here::here("R/functions/get_page_data.R"))
+source(here::here("R/functions/download_pdf_viewer.R"))
+
+source(here::here("R/params_constructed.R"))
+
+
 ```
 
-
-```{r yourvariables}
-
-# what are you searching for
-query <- '"artificial intelligence"'
-
-#when you run manually on https://www.fwc.gov.au/document-search how many results are there? (will automate this later)
-n_results <- 19
-
-```
-
-```{r fixedvariables}
-
-source(here::here("R/get_page_data.R"))
-source(here::here("R/sanitize_flename.R"))
-source(here::here("R/download_pdf_viewer.R"))
-
-# DONT EDIT THESE LINES
-start_page <- 1
-query <- URLencode(query)
-base_query <- glue::glue('https://www.fwc.gov.au/document-search?options=SearchType_3%2CSortOrder_agreement-relevance&q={query}&pagesize=50&page=')
-
-pages <- ceiling(n_results/50)
-
-sanitized_filename <- sanitize_filename(stringr::str_trim(URLdecode(query)))
-
-file_pattern <- paste0("^\\d{4}-\\d{2}-\\d{2}-", gsub(" ", "-", sanitized_filename), "\\.rds$") # File pattern for matching
-
-```
 
 ```{r getdata}
 
@@ -67,16 +58,18 @@ if (length(matching_files) > 0) {
   if (tolower(user_response) == "no") {
     # Load the existing file
     message("Loading the existing file...")
-    data <- readRDS(latest_file)
+    documents <- readRDS(latest_file)
   }} else {
     # Run the block and save the output with today's date
     message("querying the data...")
     all_data <- map(1:pages, ~get_page_data(base_query, .x))
-    documents <- all_data[[1]]$documentResult$results %>%
-      dplyr::as_tibble()
     
-    documents <- documents %>%
-      mutate(decodedURL = )
+    # Extract and combine the results from each page
+    documents <- all_data %>%
+        # Filter out NULL results (in case some pages failed to load)
+        compact() %>%
+        # Extract the `documentResult$results` from each page and convert to tibble
+        map_dfr(~ .x$documentResult$results %>% as_tibble())
     
     output_file <- file.path(data_dir, paste0(Sys.Date(), "-", gsub(" ", "-", sanitized_filename), ".rds"))
     saveRDS(documents, output_file)
@@ -85,15 +78,39 @@ if (length(matching_files) > 0) {
 
 
 
-
 ```
 
 ```{r getpdfs}
 
-# Use walk2 to iterate over metadata_storage_path and PublicationID
-walk2(documents$document.metadata_storage_path, 
-      documents$document.PublicationID, 
-      download_pdf_viewer)
+# Ask if the user wants pdf or txt
+user_response <- readline(prompt = "Do you want to get the pdfs or write the txt to files? (pdf/txt): ")
+  
+if (tolower(user_response) == "pdf") {
+    if(dir.exists(paste0(data_dir, "/pdf")) == FALSE) {
+      dir.create(paste0(data_dir, "/pdf"))
+    }
+  # Use walk2 to iterate over metadata_storage_path and PublicationID
+  walk2(documents$document.metadata_storage_path,
+        documents$document.PublicationID,
+        ~ download_pdf_viewer(
+            encoded_path = .x,
+            publication_id = .y)
+        )
+
+} else {
+    if (tolower(user_response) == "txt") {
+    if(dir.exists(paste0(data_dir, "/txt")) == FALSE) {
+      dir.create(paste0(data_dir, "/txt"))
+    }
+    
+    walk2(documents$document.text,
+          documents$document.PublicationID,
+          ~ readr::write_lines(.x,
+                               file = paste0(data_dir,"/txt/", .y, ".txt")
+          ))
+    }
+}
+
 
 ```
 
