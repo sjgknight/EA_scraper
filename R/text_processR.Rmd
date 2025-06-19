@@ -34,40 +34,90 @@ if (length(matching_files) > 0) {
 
 ```
 
-Not clear if this can run from R, I copypasted into powershell.
 Output of embeddings likely to need manually moving from `C:\Users\...\AppData\Roaming\Semantra`
-Using `https://github.com/itsjustmustafa/semantra` version of Semantra. 
+Using `https://github.com/uts-cic/semantra` version of Semantra. 
 
-```{r}
+
+```{r semantrapython}
+library(here)
+library(glue)
+
+# Set paths
+semantrapath <- file.path(here::here()) %>% 
+  dirname() %>%
+  paste0('"', ., "/semantra-main/src/semantra/semantra.py", '"')
+
+lib_folder <- here::here("data/txt")
+embeddings_cache_folder <- here::here("data/embeddings")
+
+# Get the list of `.txt` files (relative paths)
+files <- paste(list.files(path = lib_folder, pattern = "\\.txt$", recursive = TRUE, full.names = TRUE),collapse = '" "')
+# Concatenate file paths into a Python-compatible list format
+files <- paste0('["', files, '"]')
+
+# Write the Python script
+python_script <- glue::glue('
+import os
+import subprocess
+
+# Define paths
+semantrapath = {semantrapath}
+lib_folder = "{lib_folder}"
+embeddings_cache_folder = "{embeddings_cache_folder}"
+
+# List all text files in the library folder
+files = {files}')
+
+# Write the Python script to a temporary file
+python_script_path <- tempfile(fileext = ".py")
+writeLines(python_script, python_script_path)
+
+# Execute the Python script
+system2("python", python_script_path)
+
+```
+
+```{r runsemantra}
+
+reticulate::source_python(python_script_path)
+
+"python", semantrapath] + files + ["--semantra-dir", embeddings_cache_folder
+
+```
+
+
+
+```{r semantra}
+# Not clear if this can run from R, I copypasted into powershell.
 
 semantrapath <- file.path(here::here()) %>% 
   dirname() %>%
   paste0('"',., "/semantra-main/src/semantra/semantra.py",'"')
 
 # Define the PowerShell script
-powershell_script <- glue::glue('
-$semantrapath = {semantrapath}
+powershell_script <- paste0('$semantrapath = "',semantrapath,'"
 $lib_folder = ".\\data\\txt"
-$embeddings_cache_folder = ".\\data\\embedings"
-$files = Get-ChildItem -Path "$lib_folder" -Recurse -Filter "*.txt" | ForEach-Object { $_.FullName }
-')
+$embeddings_cache_folder = ".\\data\\embeddings"
+$files = Get-ChildItem -Path "$lib_folder" -Recurse -Filter "*.txt" | ForEach-Object {
+    # Combine the relative path with the base folder
+    Resolve-Path -Relative $_.FullName
+}')
 
 # If no embeddings, create them
 # Or if you have the embeddings already reload those
 script_end <- ifelse(length(list.files(here::here("data/embeddings"))) > 0, 
                      'python $semantrapath @files --semantra-dir $embeddings_cache_folder',
                      'python $semantrapath @files')
-                     
 
 powershell_script <- paste0(powershell_script, 
-                            "\n",
                             script_end)
                             
+cat(powershell_script)
 
+clipr::write_clip(powershell_script)
 
 # Run the PowerShell script
 system(paste("powershell -Command", shQuote(powershell_script)), intern = TRUE)
-
 
 
 ```
@@ -75,3 +125,64 @@ system(paste("powershell -Command", shQuote(powershell_script)), intern = TRUE)
 And open  `localhost:8080` to view/interact.
 
 This version of semantra lets you export results to json.
+
+```{r scrap, eval=FALSE, include=FALSE}
+
+# Check calling directly in Python 
+
+# $files = Get-ChildItem -Path "$lib_folder" -Recurse -Filter "*.txt" | ForEach-Object { $_.FullName }
+# above may return error:  The filename or extension is too longAt line:1 char:1. But the below addition doesn't work because Semantra expects a list of files (not a file containing a list), and reading it in just creates the first problem. 
+# $files = Get-ChildItem -Path $lib_folder -Recurse -Filter "*.txt" | ForEach-Object { $_.FullName } | Out-File -Encoding UTF8 $temp_file
+#'python $semantrapath @$temp_file --semantra-dir $embeddings_cache_folder'
+#'
+#'
+
+# Same problem
+
+library(here)
+library(glue)
+
+# Set paths
+semantrapath <- file.path(here::here()) %>% 
+  dirname() %>%
+  paste0('"', ., "/semantra-main/src/semantra/semantra.py", '"')
+
+lib_folder <- here::here("data/txt")
+embeddings_cache_folder <- here::here("data/embeddings")
+
+# Get the list of `.txt` files (relative paths)
+files <- paste(list.files(path = lib_folder, pattern = "\\.txt$", recursive = TRUE, full.names = TRUE),collapse = '" "')
+# Concatenate file paths into a Python-compatible list format
+files <- paste0('["', files, '"]')
+
+# Write the Python script
+python_script <- glue::glue('
+import os
+import subprocess
+
+# Define paths
+semantrapath = {semantrapath}
+lib_folder = "{lib_folder}"
+embeddings_cache_folder = "{embeddings_cache_folder}"
+
+# List all text files in the library folder
+files = {files}
+
+# If embeddings exist, reload them; else, create them
+if len(os.listdir(embeddings_cache_folder)) > 0:
+    subprocess.run(["python", semantrapath] + files + ["--semantra-dir", embeddings_cache_folder])
+else:
+    subprocess.run(["python", semantrapath] + files)
+')
+
+# Write the Python script to a temporary file
+python_script_path <- tempfile(fileext = ".py")
+writeLines(python_script, python_script_path)
+
+# Execute the Python script
+system2("python", python_script_path)
+
+```
+
+
+
