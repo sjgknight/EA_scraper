@@ -1,0 +1,77 @@
+---
+title: "Text annotate"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r setup}
+# 
+# # what are you searching for
+# query <- '"artificial intelligence"'
+# 
+# query <- '"technology in relation to its enterprise that is likely to have a significant effect on the employees" AND (automation OR automated OR "artificial intelligence")'
+# 
+# source(here::here("R/params.R"))
+# 
+# source(here::here("R/functions/get_query_count.R"))
+# source(here::here("R/functions/sanitize_flename.R"))
+# source(here::here("R/functions/get_page_data.R"))
+# source(here::here("R/functions/download_pdf_viewer.R"))
+# 
+# source(here::here("R/params_constructed.R"))
+
+pacman::p_load(curl, 
+               magrittr, 
+               dplyr, 
+               purrr, 
+               glue, 
+               readr, 
+               #textTinyR,
+               stringr
+               #textAnnotatoR
+               )
+
+# Check for existing files matching the pattern
+matching_files <- list.files(here::here("data"), pattern = file_pattern, full.names = TRUE)
+
+if (length(matching_files) > 0) {
+  # If multiple matching files are found, use the most recently dated
+  latest_file <- matching_files[which.max(file.info(matching_files)$mtime)]
+  
+    data <- readRDS(latest_file)
+  } else {
+    # Run the block and save the output with today's date
+    message("you need to run get_awards first...")
+}
+
+
+```
+
+```{r read}
+
+data <- `2025-04-26-technology-in-relation-to-its-enterprise-that-is-likely-to-have-a-significant-effect-on-the-employees-AND-automation-OR-automated-OR-artificial-intelligence`
+
+data2 <- data
+
+data3 <- data2 %>% 
+  select(highlights.text, document.PublicationID) %>%
+  mutate(text = stringr::str_c(highlights.text)) %>%
+  select(-c(highlights.text)) %>%
+  #dplyr::slice_(n=20) %>%
+  #tidyr::unnest(highlights.text) %>%
+  DataEditR::data_edit(x = .,
+                       col_bind = "include",
+                       col_stretch = F,
+                       viewer = "pane",
+                       code = T,
+                       quiet = T)
+
+# I screen the first 10% and maybe 2 were relevant
+
+```
+

@@ -26,7 +26,9 @@
 #' @export
 get_query_count <- function(base_query) {
   # Fetch the HTML of the first page
-  page_html <- read_html(paste0(base_query, "1"))
+  x <- httr::GET(paste0(base_query, "1"), add_headers('user-agent' = 'research webscrape sjgknight@gmail.com'))
+
+  page_html <- read_html(x)
 
   # Extract and parse the JSON data from the script containing 'aspViewModel'
   script_text <- page_html %>%

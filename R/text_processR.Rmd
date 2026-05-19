@@ -16,6 +16,7 @@ pacman::p_load(curl,
                readr, 
                textTinyR,
                stringr
+               
                )
 
 # Check for existing files matching the pattern
@@ -184,5 +185,42 @@ system2("python", python_script_path)
 
 ```
 
+
+```{r stringdist}
+library(stringdist)
+
+# Define the model clause
+model_clause <- "has made a definite decision to introduce a major change to production, program, organisation, structure or technology in relation to its enterprise that is likely to have a significant effect on the employees; or"
+
+target_phrase <- "technology in relation to its enterprise that is likely to have a significant effect on the employees"
+
+# Compute normalized Levenshtein distance (0 = identical, 1 = totally different)
+# Define a function to extract ±100 character context
+extract_context <- function(text, phrase, window = 100) {
+  match_pos <- str_locate(tolower(text), fixed(tolower(phrase)))
+  
+  if (is.na(match_pos[1])) return(NA_character_)
+  
+  start <- max(match_pos[1] - window, 1)
+  end <- min(match_pos[2] + window, nchar(text))
+  
+  str_sub(text, start, end)
+}
+
+# Tidy pipeline
+data <- data %>%
+  mutate(
+    context = str_to_lower(document.text) %>%
+      map_chr(~ extract_context(.x, target_phrase, window = 100)),
+    
+    clause_proximity = if_else(
+      is.na(context),
+      NA_real_,
+      stringdist::stringdist(context, tolower(model_clause), method = "lv") / nchar(model_clause)
+    )
+  )
+
+
+```
 
 
